@@ -10,7 +10,7 @@ st.title('Senario Log Analysis')
 
 # @st.cache
 def load_data():       # nrows = 10000
-    filepath    = r'C:\Users\MyUser\Desktop\PeterLogData\2022_0101_03米_L_Log\ui\2022-01-01\Sceanrio.txt'
+    filepath    = r'Sceanrio.txt'
     lines       = []                                                                      
     file        = open(filepath, 'r', encoding="utf-8")        # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
 
