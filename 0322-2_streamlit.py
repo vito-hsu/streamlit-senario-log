@@ -1,70 +1,89 @@
 import streamlit as st
 from datetime import datetime
-from numpy import array, where, histogram, unique, random
+from numpy import array, where, unique
 from pandas import DataFrame, to_datetime, pivot_table
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-
-st.title('Senario Log Analysis')
-
-
-# @st.cache
-def load_data():       # nrows = 10000
-    filepath    = r'Sceanrio.txt'
-    lines       = []                                                                      
-    file        = open(filepath, 'r', encoding="utf-8")        # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
-
-    for line in file:
-        lines.append(line)      
-                                                
-                                                
-    toCombindLineNumber = where([element[0:4]!="2022" for element in lines])[0].tolist()
-
-    [lines[i] for i in toCombindLineNumber]
-
-    todelete = (array(toCombindLineNumber)-array(list(range(0,len(toCombindLineNumber))))).tolist()
-    for i in todelete:
-        lines.pop(i)
-
-    data                = lines                                                                                     # data[0].split('[')[1].split('] ')[1]
-    info                = [data[i].split('[')[1].split(']')[0] for i in range(len(data))]                           # data[550].split(' ')
-    datatime            = [data[i].split(' ')[0] + ' ' + data[i].split(' ')[1] for i in range(len(data))]
-    datatime            = [datetime.strptime(datatime[i], '%Y-%m-%d %H:%M:%S,%f') for i in range(len(datatime))]    # type(datatime[0])
-    df                  = DataFrame({ 'info':info, 'time':datatime })
-    df['new_time']      = to_datetime(df['time']).dt.time
-
-    df['new_info']      = df['info'].replace(["INFO ", "DEBUG", "WARN ", "ERROR"], [0,1,2,10])
-    df['error_message1'] = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
-    df['error_message2'] = [(data[i].split('[')[1].split('] ')[1].split(' - ')[1]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
-    df['message1']      = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) for i in range(len(data))]
-    df['message2']      = [data[i].split(' - ')[1] for i in range(len(data))]                                       # [(data[0].split(' - ')[1])]
-    df['new_info'].unique()
-
-    return df
+from gensim.models.word2vec import Word2Vec, LineSentence
 
 
-data_load_state = st.text('Loading data...')        # Create a text element and let the reader know the data is loading.
-data = load_data()                                  # Load 10,000 rows of data into the dataframe.
-data_load_state.text("Done! (using st.cache)")      # Notify the reader that the data was successfully loaded.
+
+
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def load_data(data):                            
+        lines       = []                                            # filepath    = uploaded_file                                                           
+        file        = data                                      # file = open(r'Sceanrio_test.txt', 'r', encoding="utf-8")        # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
+
+        for line in file:
+            lines.append(line)      
+                                                                                            
+        toCombindLineNumber = where([element[0:4]!="2022" for element in lines])[0].tolist()
+        [lines[i] for i in toCombindLineNumber]
+
+        todelete = (array(toCombindLineNumber)-array(list(range(0,len(toCombindLineNumber))))).tolist()
+        for i in todelete:
+            lines.pop(i)
+
+        data                    = lines                                                                                     # data[0].split('[')[1].split('] ')[1]
+        info                    = [data[i].split('[')[1].split(']')[0] for i in range(len(data))]                           # data[550].split(' ')
+        datatime                = [data[i].split(' ')[0] + ' ' + data[i].split(' ')[1] for i in range(len(data))]
+        datatime                = [datetime.strptime(datatime[i], '%Y-%m-%d %H:%M:%S,%f') for i in range(len(datatime))]    # type(datatime[0])
+        df                      = DataFrame({ 'info':info, 'time':datatime })
+        df['new_time']          = to_datetime(df['time']).dt.time
+        df['new_info']          = df['info'].replace(["INFO ", "DEBUG", "WARN ", "ERROR"], [0,1,2,10])
+        df['error_message1']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
+        df['error_message2']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[1]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
+        df['message1']          = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) for i in range(len(data))]
+        df['message2']          = [data[i].split(' - ')[1] for i in range(len(data))]                                       # [(data[0].split(' - ')[1])]
+        df['new_info'].unique()
+
+        return df
+
+
+# upload data
+st.title('Scenario Log Analysis')
+uploaded_file = st.file_uploader("Upload your scenario log file", type='txt')
+if uploaded_file is not None:
+    file_details = {
+        "FileName":uploaded_file.name,
+        "FileType":uploaded_file.type,
+        "FileSize":uploaded_file.size
+    }
+    st.write(file_details)
+    if uploaded_file.type == "text/plain":
+        raw_text        = str(uploaded_file.read(),"utf-8").split('\n')    
+        data_load_state = st.text('Loading data...')                        # Create a text element and let the reader know the data is loading.
+        data            = load_data(data=raw_text)                          # Load 10,000 rows of data into the dataframe.
+        data_load_state.text("Done!")                                       # Notify the reader that the data was successfully loaded.    
+else:
+    st.write('<p style="color:Red; font-size: 20px; font-weight: bold;">You have not entered the appropriate data.</p>', unsafe_allow_html=True)
+    st.write('<p style="font-size: 20px; font-weight: bold;">Please enter the data first.</p>', unsafe_allow_html=True)
+    st.write('<span style="font-size: 20px; font-weight: bold;">And we will give you the automatical report</span>'+'<span style="color:Red; font-size: 20px; font-weight: bold;"> in the following</span>', unsafe_allow_html=True)
+
+
+
+
 
 
 # EDA (exploratory data analysis)
-st.header('EDA (exploratory data analysis)')
-if st.checkbox('Show data'):
-    if st.checkbox('Show error data'):
-        st.subheader('Raw error data')
-        data2 = data.set_index('time')
-        st.dataframe(data2.loc[data2['info'] == "ERROR"].iloc[:,[0,3,4]])
+st.header('EDA (Exploratory Data Analysis)')
+
+# Table
+data2 = data.set_index('time')
+if st.checkbox('Show Data Table'):
+    if st.checkbox('show Only Error'):
+        st.subheader('Table (Error)')
+        st.dataframe(data2.loc[data2['info'] == "ERROR"][['info', 'message1', 'message2']])
     else:
-        st.subheader('Raw data')
-        st.dataframe(data.iloc[:,[0,1,6,7]])        
+        st.subheader('Table')
+        st.dataframe(data2[['info', 'message1', 'message2']])        
 
 
 
 
 
 # Pie chart
-st.subheader('Info/Debug/Warn/Error Pie Chart')
+st.subheader('Pie Chart')
 labels = 'Info', 'Debug', 'Warn', 'Error'
 sizes = list(data['info'].value_counts())
 explode = (0.1, 0.1, 0.1, 0.5)
@@ -76,7 +95,7 @@ st.pyplot(fig1)
 
 
 # Bar chart
-st.subheader('Errors Count in hours')
+st.subheader('Bar chart - Errors Count in hours')
 data3           = data
 data3['hour']   = data3['time'].dt.hour
 data3           = data3.loc[data3['info'] == "ERROR"].iloc[:,[0,8]]
@@ -86,27 +105,28 @@ st.bar_chart(table)
 
 
 
-# 
-df = data
-cut1 = int(round(len(df)/8))
-cut2 = int(round(len(df)/8*2))
-cut3 = int(round(len(df)/8*3))
-cut4 = int(round(len(df)/8*4))
-cut5 = int(round(len(df)/8*5))
-cut6 = int(round(len(df)/8*6))
-cut7 = int(round(len(df)/8*7))
-cut  = [0, cut1, cut2, cut3, cut4, cut5, cut6, cut7, len(df)]   ;   part = 1
+# Time-Series Plot
+st.subheader('Time-Series Plot - Divided into 8 parts')
+part    = st.slider(label= 'part', min_value= 1, max_value= 8, value= 1)
+df      = data
+cut1    = int(round(len(df)/8))
+cut2    = int(round(len(df)/8*2))
+cut3    = int(round(len(df)/8*3))
+cut4    = int(round(len(df)/8*4))
+cut5    = int(round(len(df)/8*5))
+cut6    = int(round(len(df)/8*6))
+cut7    = int(round(len(df)/8*7))
+cut     = [0, cut1, cut2, cut3, cut4, cut5, cut6, cut7, len(df)]  
 
-for j in range(8):
-    figure, axis = plt.subplots(1, 1)
-    X  = array(df['time'][cut[j]:cut[j+1]])             # type(df['new_time'][0])   ;   type(df['time'][0])
-    Y  = array(df['new_info'][cut[j]:cut[j+1]])
-    axis.plot(X,   Y)  
-    ax = axis                                           # ax.set_title('Manual DateFormatter', loc='left', y=0.85, x=0.02, fontsize='medium')
-    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(ax.xaxis.get_major_locator()))
-    ax.axhline(y=3, c="red", linewidth=2, zorder=0)
-    st.subheader(f'Part:{part}/8')    ;   part += 1
-    st.pyplot(figure)                                   # plt.show()
+
+figure, axis = plt.subplots(1, 1)
+X       = array(df['time'][cut[part-1]:cut[part]])              # type(df['new_time'][0])   ;   type(df['time'][0])
+Y       = array(df['new_info'][cut[part-1]:cut[part]])
+axis.plot(X,   Y)  
+axis.xaxis.set_major_formatter(mdates.ConciseDateFormatter(axis.xaxis.get_major_locator()))
+axis.axhline(y=3, c="red", linewidth=2, zorder=0)
+st.text(f'Part:{part}/8')
+st.pyplot(figure)                                               # plt.show()
 
 
 
@@ -124,7 +144,7 @@ for j in range(8):
 st.header('Text Mining')
 st.subheader('Parametry Setting')
 df = data   ;   text_num = 0
-with open(f'senario_text_loader.txt', 'w', encoding='utf-8') as f:             # 記得要加 encoding='utf-8' 否則會出錯 !!
+with open(f'scenario_text_loader.txt', 'w', encoding='utf-8') as f:             # 記得要加 encoding='utf-8' 否則會出錯 !!
     for text in list(df['message2']):                                      
         text = text.replace(' ', '_')
         f.write(''.join(text)+' ')                                       
@@ -146,7 +166,7 @@ with open(f'senario_text_loader.txt', 'w', encoding='utf-8') as f:             #
     print('{} articles processed.'.format(text_num))
 
 # 訓練資料 !!
-from gensim.models.word2vec import Word2Vec, LineSentence
+
 seed        = 666               # 亂數種子
 
 sg_st       = st.radio("What's your algorithm",  ('CBOW', 'Skip-Gram'))         
@@ -158,7 +178,7 @@ min_count   = st.number_input('Insert the min_count(default = 5)',        value=
 workers     = st.number_input('Insert the workers(default = 3)',          value=int(3),   help='訓練的並行數量, workers is the number of "threads" for the training of the model, higher number = faster training.')         
 epochs      = st.number_input('Insert the epochs(default = 5)',           value=int(5),   help='訓練的迭代次數')                 
 batch_words = st.number_input('Insert the batch_words',                   value=int(2000),help='每次給予多少詞彙量訓練')  
-train_data  = LineSentence(f'senario_text_loader.txt') # type(train_data)  ;   dir(train_data)
+train_data  = LineSentence(f'scenario_text_loader.txt') # type(train_data)  ;   dir(train_data)
 
 model       = Word2Vec(
     train_data,
@@ -171,8 +191,8 @@ model       = Word2Vec(
     seed        =   seed,
     batch_words =   batch_words
 )
-# model.save(f'senario_text_loader.model')
-# model       = Word2Vec.load(f'senario_text_loader.model')               
+# model.save(f'scenario_text_loader.model')
+# model       = Word2Vec.load(f'scenario_text_loader.model')               
 
 
 
@@ -195,6 +215,8 @@ we_want_new = []
 for item in we_want:
     if '\n' in item:
         item = item.replace('\n', '')
+    if '\r' in item:
+        item = item.replace('\r', '')
     if ' ' in item:
         item = item.replace(' ', '_')
     we_want_new.append(item)
@@ -252,3 +274,120 @@ st.write('The most similar words to the words you select:', result_df2)
 
 
 
+# import streamlit as st
+# import streamlit.components.v1 as stc
+
+# # File Processing Pkgs
+# import pandas as pd
+# import docx2txt
+# from PIL import Image 
+# from PyPDF2 import PdfFileReader
+# import pdfplumber
+
+
+# def read_pdf(file):
+# 	pdfReader = PdfFileReader(file)
+# 	count = pdfReader.numPages
+# 	all_page_text = ""
+# 	for i in range(count):
+# 		page = pdfReader.getPage(i)
+# 		all_page_text += page.extractText()
+
+# 	return all_page_text
+
+# def read_pdf_with_pdfplumber(file):
+# 	with pdfplumber.open(file) as pdf:
+# 	    page = pdf.pages[0]
+# 	    return page.extract_text()
+
+# # import fitz  # this is pymupdf
+
+# # def read_pdf_with_fitz(file):
+# # 	with fitz.open(file) as doc:
+# # 		text = ""
+# # 		for page in doc:
+# # 			text += page.getText()
+# # 		return text 
+
+# # Fxn
+# @st.cache
+# def load_image(image_file):
+# 	img = Image.open(image_file)
+# 	return img 
+
+
+
+# def main():
+# 	st.title("File Upload Tutorial")
+
+# 	menu = ["Home","Dataset","DocumentFiles","About"]
+# 	choice = st.sidebar.selectbox("Menu",menu)
+
+# 	if choice == "Home":
+# 		st.subheader("Home")
+# 		image_file = st.file_uploader("Upload Image",type=['png','jpeg','jpg'])
+# 		if image_file is not None:
+		
+# 			# To See Details
+# 			# st.write(type(image_file))
+# 			# st.write(dir(image_file))
+# 			file_details = {"Filename":image_file.name,"FileType":image_file.type,"FileSize":image_file.size}
+# 			st.write(file_details)
+
+# 			img = load_image(image_file)
+# 			st.image(img,width=250,height=250)
+
+
+# 	elif choice == "Dataset":
+# 		st.subheader("Dataset")
+# 		data_file = st.file_uploader("Upload CSV",type=['csv'])
+# 		if st.button("Process"):
+# 			if data_file is not None:
+# 				file_details = {"Filename":data_file.name,"FileType":data_file.type,"FileSize":data_file.size}
+# 				st.write(file_details)
+
+# 				df = pd.read_csv(data_file)
+# 				st.dataframe(df)
+
+# 	elif choice == "DocumentFiles":
+# 		st.subheader("DocumentFiles")
+# 		docx_file = st.file_uploader("Upload File",type=['txt','docx','pdf'])
+# 		if st.button("Process"):
+# 			if docx_file is not None:
+# 				file_details = {"Filename":docx_file.name,"FileType":docx_file.type,"FileSize":docx_file.size}
+# 				st.write(file_details)
+# 				# Check File Type
+# 				if docx_file.type == "text/plain":
+# 					# raw_text = docx_file.read() # read as bytes
+# 					# st.write(raw_text)
+# 					# st.text(raw_text) # fails
+# 					st.text(str(docx_file.read(),"utf-8")) # empty
+# 					raw_text = str(docx_file.read(),"utf-8") # works with st.text and st.write,used for futher processing
+# 					# st.text(raw_text) # Works
+# 					st.write(raw_text) # works
+# 				elif docx_file.type == "application/pdf":
+# 					# raw_text = read_pdf(docx_file)
+# 					# st.write(raw_text)
+# 					try:
+# 						with pdfplumber.open(docx_file) as pdf:
+# 						    page = pdf.pages[0]
+# 						    st.write(page.extract_text())
+# 					except:
+# 						st.write("None")
+					    
+					
+# 				elif docx_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+# 				# Use the right file processor ( Docx,Docx2Text,etc)
+# 					raw_text = docx2txt.process(docx_file) # Parse in the uploadFile Class directory
+# 					st.write(raw_text)
+
+# 	else:
+# 		st.subheader("About")
+# 		st.info("Built with Streamlit")
+# 		st.info("Jesus Saves @JCharisTech")
+# 		st.text("Jesse E.Agbe(JCharis)")
+
+
+
+# if __name__ == '__main__':
+# 	main()
