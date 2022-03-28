@@ -56,9 +56,8 @@ if uploaded_file is not None:
         data            = load_data(data=raw_text)                          # Load 10,000 rows of data into the dataframe.
         data_load_state.text("Done!")                                       # Notify the reader that the data was successfully loaded.    
 else:
-    st.write('<p style="color:Red; font-size: 20px; font-weight: bold;">You have not entered the appropriate data.</p>', unsafe_allow_html=True)
-    st.write('<p style="font-size: 20px; font-weight: bold;">Please enter the data first.</p>', unsafe_allow_html=True)
-    st.write('<span style="font-size: 20px; font-weight: bold;">And we will give you the automatical report</span>'+'<span style="color:Red; font-size: 20px; font-weight: bold;"> in the following</span>', unsafe_allow_html=True)
+    st.write('<span style="color:Red; font-size: 20px; font-weight: bold;">You have not uploaded the appropriate data.</span>', unsafe_allow_html=True)
+    st.write('<span style="font-size: 20px; font-weight: bold;">Please upload the data first,</span>'+'<span style="font-size: 20px; font-weight: bold;"> and we will give you the analytical report automatically</span>'+'<span style="color:Red; font-size: 20px; font-weight: bold;"> in the following.</span>', unsafe_allow_html=True)
 
 
 
