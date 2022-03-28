@@ -8,36 +8,44 @@ from gensim.models.word2vec import Word2Vec, LineSentence
 
 
 
+def preprocess(data):
+    # 測試請跑下面這段 
+    # file = open(r'C:\Users\MyUser\Desktop\PeterLogData\2022_0103_03米_UL_Log\ui\2022-01-03\Sceanrio.txt', 'r', encoding="utf-8")
+    # file = open(r'Sceanrio.txt', 'r', encoding="utf-8")      # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
+    lines       = []                                                                                                      
+    file        = data                                           
+    for line in file:
+        lines.append(line)                                                                                   
+    toCombindLineNumber = where([element[0:4]!="2022" for element in lines])[0].tolist()
+    [lines[i] for i in toCombindLineNumber]
+    todelete    = (array(toCombindLineNumber)-array(list(range(0,len(toCombindLineNumber))))).tolist()
+    for i in todelete:
+        lines.pop(i)
+    return lines
+
+
+
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def load_data(data):                            
-        lines       = []                                            # filepath    = uploaded_file                                                           
-        file        = data                                      # file = open(r'Sceanrio_test.txt', 'r', encoding="utf-8")        # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
+    lines                   = preprocess(data=data)
+    data                    = lines                                                                                     # data[0].split('[')[1].split('] ')[1]
+    info                    = [data[i].split('[')[1].split(']')[0] for i in range(len(data))]                           # data[550].split(' ')
+    datatime                = [data[i].split(' ')[0] + ' ' + data[i].split(' ')[1] for i in range(len(data))]
+    datatime                = [datetime.strptime(datatime[i], '%Y-%m-%d %H:%M:%S,%f') for i in range(len(datatime))]    # type(datatime[0])
+    df                      = DataFrame({ 'info':info, 'time':datatime })
+    df['new_time']          = to_datetime(df['time']).dt.time
+    df['new_info']          = df['info'].replace(["INFO ", "DEBUG", "WARN ", "ERROR"], [0,1,2,10])
+    df['error_message1']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
+    df['error_message2']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[1]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
+    df['message1']          = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) for i in range(len(data))]
+    df['message2']          = [data[i].split(' - ')[1] for i in range(len(data))]                                       # [(data[0].split(' - ')[1])]
+    df['new_info'].unique()
+    # 測試請跑下面這段 
+    # data = df
+    return df
 
-        for line in file:
-            lines.append(line)      
-                                                                                            
-        toCombindLineNumber = where([element[0:4]!="2022" for element in lines])[0].tolist()
-        [lines[i] for i in toCombindLineNumber]
 
-        todelete = (array(toCombindLineNumber)-array(list(range(0,len(toCombindLineNumber))))).tolist()
-        for i in todelete:
-            lines.pop(i)
-
-        data                    = lines                                                                                     # data[0].split('[')[1].split('] ')[1]
-        info                    = [data[i].split('[')[1].split(']')[0] for i in range(len(data))]                           # data[550].split(' ')
-        datatime                = [data[i].split(' ')[0] + ' ' + data[i].split(' ')[1] for i in range(len(data))]
-        datatime                = [datetime.strptime(datatime[i], '%Y-%m-%d %H:%M:%S,%f') for i in range(len(datatime))]    # type(datatime[0])
-        df                      = DataFrame({ 'info':info, 'time':datatime })
-        df['new_time']          = to_datetime(df['time']).dt.time
-        df['new_info']          = df['info'].replace(["INFO ", "DEBUG", "WARN ", "ERROR"], [0,1,2,10])
-        df['error_message1']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
-        df['error_message2']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[1]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
-        df['message1']          = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) for i in range(len(data))]
-        df['message2']          = [data[i].split(' - ')[1] for i in range(len(data))]                                       # [(data[0].split(' - ')[1])]
-        df['new_info'].unique()
-
-        return df
 
 
 # upload data
@@ -83,13 +91,13 @@ if st.checkbox('Show Data Table'):
 
 # Pie chart
 st.subheader('Pie Chart')
-labels = 'Info', 'Debug', 'Warn', 'Error'
-sizes = list(data['info'].value_counts())
-explode = (0.1, 0.1, 0.1, 0.5)
-fig1, ax1 = plt.subplots()
+labels      = 'INFO', 'DEBUG', 'WARN', 'ERROR'
+sizes       = list(data['info'].value_counts()[['INFO ', 'DEBUG', 'WARN ', 'ERROR']])
+explode     = (0.1, 0.1, 0.1, 0.5)
+fig1, ax1   = plt.subplots()
 ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
 ax1.axis('equal')
-st.pyplot(fig1)
+st.pyplot(fig1)                                               # plt.show()
 
 
 
@@ -97,7 +105,7 @@ st.pyplot(fig1)
 st.subheader('Bar chart - Errors Count in hours')
 data3           = data
 data3['hour']   = data3['time'].dt.hour
-data3           = data3.loc[data3['info'] == "ERROR"].iloc[:,[0,8]]
+data3           = data3.loc[data3['info'] == "ERROR"][['info', 'hour']]
 table           = pivot_table(data=data3, values='info', index=['hour'], aggfunc='count')
 st.bar_chart(table)
 
@@ -106,21 +114,19 @@ st.bar_chart(table)
 
 # Time-Series Plot
 st.subheader('Time-Series Plot - Divided into 8 parts')
-part    = st.slider(label= 'part', min_value= 1, max_value= 8, value= 1)
-df      = data
-cut1    = int(round(len(df)/8))
-cut2    = int(round(len(df)/8*2))
-cut3    = int(round(len(df)/8*3))
-cut4    = int(round(len(df)/8*4))
-cut5    = int(round(len(df)/8*5))
-cut6    = int(round(len(df)/8*6))
-cut7    = int(round(len(df)/8*7))
-cut     = [0, cut1, cut2, cut3, cut4, cut5, cut6, cut7, len(df)]  
-
-
-figure, axis = plt.subplots(1, 1)
-X       = array(df['time'][cut[part-1]:cut[part]])              # type(df['new_time'][0])   ;   type(df['time'][0])
-Y       = array(df['new_info'][cut[part-1]:cut[part]])
+part            = st.slider(label= 'part', min_value= 1, max_value= 8, value= 1)
+df              = data
+cut1            = int(round(len(df)/8))
+cut2            = int(round(len(df)/8*2))
+cut3            = int(round(len(df)/8*3))
+cut4            = int(round(len(df)/8*4))
+cut5            = int(round(len(df)/8*5))
+cut6            = int(round(len(df)/8*6))
+cut7            = int(round(len(df)/8*7))
+cut             = [0, cut1, cut2, cut3, cut4, cut5, cut6, cut7, len(df)]  
+figure, axis    = plt.subplots(1, 1)
+X               = array(df['time'][cut[part-1]:cut[part]])              # type(df['new_time'][0])   ;   type(df['time'][0])
+Y               = array(df['new_info'][cut[part-1]:cut[part]])
 axis.plot(X,   Y)  
 axis.xaxis.set_major_formatter(mdates.ConciseDateFormatter(axis.xaxis.get_major_locator()))
 axis.axhline(y=3, c="red", linewidth=2, zorder=0)
