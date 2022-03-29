@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from numpy import array, where, unique
-from pandas import DataFrame, to_datetime, pivot_table
+from pandas import DataFrame, pivot_table, concat
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from gensim.models.word2vec import Word2Vec, LineSentence
@@ -11,14 +11,15 @@ from gensim.models.word2vec import Word2Vec, LineSentence
 def preprocess(data):
     # 測試請跑下面這段 
     # file = open(r'C:\Users\MyUser\Desktop\PeterLogData\2022_0103_03米_UL_Log\ui\2022-01-03\Sceanrio.txt', 'r', encoding="utf-8")
-    # file = open(r'Sceanrio.txt', 'r', encoding="utf-8")      # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
-    lines       = []                                                                                                      
-    file        = data                                           
+    # file = open(r'C:\Users\MyUser\Desktop\PeterLogData\2022_0102_03米_UnLoader_Log\UI\2022-01-01\Sceanrio.txt', 'r', encoding="utf-8")
+    # file = open(r'Sceanrio.txt', 'r', encoding="utf-8")      
+    # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
+    lines               = []                                                                                                      
+    file                = data                                           
     for line in file:
         lines.append(line)                                                                                   
-    toCombindLineNumber = where([element[0:4]!="2022" for element in lines])[0].tolist()
-    [lines[i] for i in toCombindLineNumber]
-    todelete    = (array(toCombindLineNumber)-array(list(range(0,len(toCombindLineNumber))))).tolist()
+    toCombindLineNumber = where([element[0:4]!="2022" for element in lines])[0].tolist()                        # [lines[i] for i in toCombindLineNumber]
+    todelete            = (array(toCombindLineNumber)-array(list(range(0,len(toCombindLineNumber))))).tolist()
     for i in todelete:
         lines.pop(i)
     return lines
@@ -28,19 +29,16 @@ def preprocess(data):
 
 @st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def load_data(data):                            
-    lines                   = preprocess(data=data)
-    data                    = lines                                                                                     # data[0].split('[')[1].split('] ')[1]
-    info                    = [data[i].split('[')[1].split(']')[0] for i in range(len(data))]                           # data[550].split(' ')
-    datatime                = [data[i].split(' ')[0] + ' ' + data[i].split(' ')[1] for i in range(len(data))]
-    datatime                = [datetime.strptime(datatime[i], '%Y-%m-%d %H:%M:%S,%f') for i in range(len(datatime))]    # type(datatime[0])
-    df                      = DataFrame({ 'info':info, 'time':datatime })
-    df['new_time']          = to_datetime(df['time']).dt.time
-    df['new_info']          = df['info'].replace(["INFO ", "DEBUG", "WARN ", "ERROR"], [0,1,2,10])
-    df['error_message1']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
-    df['error_message2']    = [(data[i].split('[')[1].split('] ')[1].split(' - ')[1]) if df['new_info'][i] == 10 else "" for i in range(len(data))]
-    df['message1']          = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) for i in range(len(data))]
-    df['message2']          = [data[i].split(' - ')[1] for i in range(len(data))]                                       # [(data[0].split(' - ')[1])]
-    df['new_info'].unique()
+    lines               = preprocess(data=data)
+    data                = lines                                                                                     # data[0].split('[')[1].split('] ')[1]
+    n                   = len(data)
+    info                = [data[i].split('[')[1].split(']')[0] for i in range(n)]                                   # data[550].split(' ')
+    datatime            = [data[i].split(' ')[0] + ' ' + data[i].split(' ')[1] for i in range(n)]
+    datatime            = [datetime.strptime(datatime[i], '%Y-%m-%d %H:%M:%S,%f') for i in range(n)]                # type(datatime[0])
+    df                  = DataFrame({ 'info':info, 'time':datatime })                                               # df['new_time'] = to_datetime(df['time']).dt.time
+    df['new_info']      = df['info'].replace(["INFO ", "DEBUG", "WARN ", "ERROR"], [0,1,2,10])                      # df['new_info'].unique()
+    df['message1']      = [(data[i].split('[')[1].split('] ')[1].split(' - ')[0]) for i in range(n)]
+    df['message2']      = [data[i].split(' - ')[1] for i in range(n)]                                               # [(data[0].split(' - ')[1])]
     # 測試請跑下面這段 
     # data = df
     return df
@@ -50,25 +48,33 @@ def load_data(data):
 
 # upload data
 st.title('Scenario Log Analysis')
-uploaded_file = st.file_uploader("Upload your scenario log file", type='txt')
-if uploaded_file is not None:
-    file_details = {
-        "FileName":uploaded_file.name,
-        "FileType":uploaded_file.type,
-        "FileSize":uploaded_file.size
-    }
-    st.write(file_details)
-    if uploaded_file.type == "text/plain":
-        raw_text        = str(uploaded_file.read(),"utf-8").split('\n')    
+mode = st.selectbox("Mode", ("Single File", "Multiple Files"))
+if mode == "Single File":
+    uploaded_file = st.file_uploader("Upload your scenario log file", type='txt')
+    if uploaded_file is not None:     
         data_load_state = st.text('Loading data...')                        # Create a text element and let the reader know the data is loading.
+        raw_text        = str(uploaded_file.read(),"utf-8").split('\n')     # file_details = {"FileName":uploaded_file.name, "FileType":uploaded_file.type, "FileSize":uploaded_file.size}    ;   st.write(file_details)  
         data            = load_data(data=raw_text)                          # Load 10,000 rows of data into the dataframe.
         data_load_state.text("Done!")                                       # Notify the reader that the data was successfully loaded.    
-else:
-    st.write('<span style="color:Red; font-size: 20px; font-weight: bold;">You have not uploaded the appropriate data.</span>', unsafe_allow_html=True)
-    st.write('<span style="font-size: 20px; font-weight: bold;">Please upload the data first,</span>'+'<span style="font-size: 20px; font-weight: bold;"> and we will give you the analytical report automatically</span>'+'<span style="color:Red; font-size: 20px; font-weight: bold;"> in the following.</span>', unsafe_allow_html=True)
+    else:
+        st.write('<span style="color:Red; font-size: 20px; font-weight: bold;">You have not uploaded the appropriate data.</span>', unsafe_allow_html=True)
+        st.write('<span style="font-size: 20px; font-weight: bold;">Please upload the data first,</span>'+'<span style="font-size: 20px; font-weight: bold;"> and we will give you the analytical report automatically</span>'+'<span style="color:Red; font-size: 20px; font-weight: bold;"> in the following.</span>', unsafe_allow_html=True)
+elif mode == "Multiple Files":
+    uploaded_files = st.file_uploader("Upload your scenario log files", type='txt', accept_multiple_files=True)
+    if uploaded_files is not None:     
+        data_load_state = st.text('Loading data...')                        # Create a text element and let the reader know the data is loading.
+        data           = DataFrame({})
+        for uploaded_file in uploaded_files:
+            raw_text    = str(uploaded_file.read(),"utf-8").split('\n')
+            data_split  = load_data(data=raw_text)
+            data        = concat([data, data_split])
+        data_load_state.text("Done!")                                       # Notify the reader that the data was successfully loaded.    
+    else:
+        st.write('<span style="color:Red; font-size: 20px; font-weight: bold;">You have not uploaded the appropriate data.</span>', unsafe_allow_html=True)
+        st.write('<span style="font-size: 20px; font-weight: bold;">Please upload the data first,</span>'+'<span style="font-size: 20px; font-weight: bold;"> and we will give you the analytical report automatically</span>'+'<span style="color:Red; font-size: 20px; font-weight: bold;"> in the following.</span>', unsafe_allow_html=True)    
+        
 
-
-
+data = data.sort_values(by=['time'])                                        # ReOrder (for multiple files uploaded)
 
 
 
@@ -80,16 +86,21 @@ data2 = data.set_index('time')
 if st.checkbox('Show Data Table'):
     if st.checkbox('show Only Error'):
         st.subheader('Table (Error)')
-        st.dataframe(data2.loc[data2['info'] == "ERROR"][['info', 'message1', 'message2']])
+        table = data2.loc[data2['info'] == "ERROR"][['info', 'message1', 'message2']]
+        st.dataframe(table)
+        st.text(f'Total:{table.shape}')
     else:
         st.subheader('Table')
-        st.dataframe(data2[['info', 'message1', 'message2']])        
+        table = data2[['info', 'message1', 'message2']]
+        st.dataframe(table) 
+        st.text(f'Total:{table.shape}')
 
 
 
 
 
-# Pie chart
+
+# Pie Chart
 st.subheader('Pie Chart')
 labels      = 'INFO', 'DEBUG', 'WARN', 'ERROR'
 sizes       = list(data['info'].value_counts()[['INFO ', 'DEBUG', 'WARN ', 'ERROR']])
@@ -97,36 +108,30 @@ explode     = (0.1, 0.1, 0.1, 0.5)
 fig1, ax1   = plt.subplots()
 ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
 ax1.axis('equal')
-st.pyplot(fig1)                                               # plt.show()
+st.pyplot(fig1)                                                 # plt.show()
 
 
 
-# Bar chart
+# Bar Chart
 st.subheader('Bar chart - Errors Count in hours')
-data3           = data
-data3['hour']   = data3['time'].dt.hour
-data3           = data3.loc[data3['info'] == "ERROR"][['info', 'hour']]
-table           = pivot_table(data=data3, values='info', index=['hour'], aggfunc='count')
+data3               = data                                      # 令一個新的變數名稱叫做 data3 進一步處理
+data3['hour']       = data3['time'].dt.hour
+data3['info_type']  = data3['info']
+data3               = data3.loc[data3['info_type'] == "ERROR"][['info_type', 'hour']]
+table               = pivot_table(data=data3, values='info_type', index=['hour'], aggfunc='count')
 st.bar_chart(table)
 
 
 
 
 # Time-Series Plot
-st.subheader('Time-Series Plot - Divided into 8 parts')
-part            = st.slider(label= 'part', min_value= 1, max_value= 8, value= 1)
-df              = data
-cut1            = int(round(len(df)/8))
-cut2            = int(round(len(df)/8*2))
-cut3            = int(round(len(df)/8*3))
-cut4            = int(round(len(df)/8*4))
-cut5            = int(round(len(df)/8*5))
-cut6            = int(round(len(df)/8*6))
-cut7            = int(round(len(df)/8*7))
-cut             = [0, cut1, cut2, cut3, cut4, cut5, cut6, cut7, len(df)]  
+st.subheader('Time-Series Plot - Divided into parts')
+total_part      = st.number_input('Enter the total parts number:', value=int(8))
+part            = st.slider(label = 'which part to see', min_value= 1, max_value= total_part, value= 1)
+cut             = list(range(0, len(data), int(len(data)/total_part)))
 figure, axis    = plt.subplots(1, 1)
-X               = array(df['time'][cut[part-1]:cut[part]])              # type(df['new_time'][0])   ;   type(df['time'][0])
-Y               = array(df['new_info'][cut[part-1]:cut[part]])
+X               = array(data['time'][cut[part-1]:cut[part]])              # type(df['new_time'][0])   ;   type(df['time'][0])
+Y               = array(data['new_info'][cut[part-1]:cut[part]])
 axis.plot(X,   Y)  
 axis.xaxis.set_major_formatter(mdates.ConciseDateFormatter(axis.xaxis.get_major_locator()))
 axis.axhline(y=3, c="red", linewidth=2, zorder=0)
@@ -173,10 +178,8 @@ with open(f'scenario_text_loader.txt', 'w', encoding='utf-8') as f:             
 # 訓練資料 !!
 
 seed        = 666               # 亂數種子
-
 sg_st       = st.radio("What's your algorithm",  ('CBOW', 'Skip-Gram'))         
 sg          = 0 if sg_st == 'CBOW' else 1
-
 window_size = st.number_input('Insert the window_size(default = 5)',      value=int(10),  help='周圍詞彙要看多少範圍')                       
 vector_size = st.number_input('Insert the vector_size(default = 100)',    value=int(20),  help='轉成向量的維度 ; 詞向量的維度大小，維度太小會無法有效表達詞與詞的關係，維度太大會使關係太稀疏而難以找出規則') 
 min_count   = st.number_input('Insert the min_count(default = 5)',        value=int(1),   help='詞頻少於 min_count 之詞彙不會參與訓練')              
@@ -184,6 +187,17 @@ workers     = st.number_input('Insert the workers(default = 3)',          value=
 epochs      = st.number_input('Insert the epochs(default = 5)',           value=int(5),   help='訓練的迭代次數')                 
 batch_words = st.number_input('Insert the batch_words',                   value=int(2000),help='每次給予多少詞彙量訓練')  
 train_data  = LineSentence(f'scenario_text_loader.txt') # type(train_data)  ;   dir(train_data)
+
+
+# 測試請跑以下
+# sg          = 0
+# window_size = 10
+# vector_size = 20
+# min_count   = 1
+# workers     = 3
+# epochs      = 5
+# batch_words = 2000
+# train_data  = LineSentence(f'scenario_text_loader.txt')
 
 model       = Word2Vec(
     train_data,
@@ -215,7 +229,7 @@ st.write('The most similar words to the words you enter:', result_df1)
 # Results2
 st.subheader('Results2')
 data2       = data.set_index('time') 
-we_want     = unique(data2.loc[data2['info'] == "ERROR"].iloc[:,4])
+we_want     = unique(data2.loc[data2['info']=="ERROR"][['message2']])   # 
 we_want_new = []
 for item in we_want:
     if '\n' in item:
