@@ -12,7 +12,7 @@ def preprocess(data):
     # 測試請跑下面這段 
     # file = open(r'C:\Users\MyUser\Desktop\PeterLogData\2022_0103_03米_UL_Log\ui\2022-01-03\Sceanrio.txt', 'r', encoding="utf-8")
     # file = open(r'C:\Users\MyUser\Desktop\PeterLogData\2022_0102_03米_UnLoader_Log\UI\2022-01-01\Sceanrio.txt', 'r', encoding="utf-8")
-    # file = open(r'Sceanrio.txt', 'r', encoding="utf-8")      
+    # file = open(r'Sceanrio1.txt', 'r', encoding="utf-8")      
     # 記得要加 【, encoding="utf-8"】，以免產生  【UnicodeDecodeError: 'cp950' codec can't decode......】 
     lines               = []                                                                                                      
     file                = data                                           
